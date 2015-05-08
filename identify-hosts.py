@@ -7,9 +7,10 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import *
 import xml.sax
 import sys
-
+from colorama import init, Fore
 # There might be better values in different scenarios. Feel free to play with the value
-MAX_DIFFERENCE = 500
+MAX_DIFFERENCE = 1000
+
 
 def validate_ip(ip):
     a = ip.split('.')
@@ -45,7 +46,18 @@ class NmapHandler(xml.sax.ContentHandler):
         if name == "port":
             self.port = 0
     
-            
+
+def banner():
+    """ banner() - prints banner """
+    print ""
+    print ".___             __  .__  _____                .__                    __                          "
+print "|__| __| _/____   _____/  |_|__|/ ____\__.__.         |  |__   ____  _______/  |_  ______  ______ ___.__."
+print "|  |/ __ |/ __ \ /    \   __\  \   __<   |  |  ______ |  |  \ /  _ \/  ___/\   __\/  ___/  \____ <   |  |"
+print "|  / /_/ \  ___/|   |  \  | |  ||  |  \___  | /_____/ |   Y  (  <_> )___ \  |  |  \___ \   |  |_> >___  |"
+print "|__\____ |\___  >___|  /__| |__||__|  / ____|         |___|  /\____/____  > |__| /____  > /\   __// ____|"
+print "        \/    \/     \/               \/                   \/           \/            \/  \/__|   \/     "
+print ""
+
 def usage():
     """ usage() - print usage """
     print "Usage: python identify-hosts.py nmap-output.xml"
@@ -55,6 +67,7 @@ def __main__():
     """ main() - runs identify-hosts.py """
     print "This is a PoC script"
     print "(c) 2015 Veit Hailperin\n"
+    init()
     if len(sys.argv) != 2:
         usage()
         exit()
@@ -84,17 +97,18 @@ def __main__():
 
     while len(open_ports) > 0: 
         c_port = open_ports.pop()
-        hosts.append([c_port])
+        hosts.append([str(c_port)+" ["+str(timestamps[c_port][0])+"]"])
         for port in open_ports:
             if abs(timestamps[port][0] - timestamps[c_port][0]) < MAX_DIFFERENCE:
-                hosts[len(hosts)-1].append(port)
+                hosts[len(hosts)-1].append(str(port)+" ["+str(timestamps[port][0])+"]")
                 open_ports.remove(port)
 
     print "The following ports seem to belong to the same host:"
     i = 1
     for host in hosts:
-        print "Host "+str(i)+":"
-        print ", ".join([str(x) for x in host])
+        print('\033[31m'+ "Host "+str(i)+":"+'\033[32m')
+        print(", ".join([str(x) for x in host]))
+        print ""
         i += 1
                 
 __main__()
