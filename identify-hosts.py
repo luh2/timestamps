@@ -9,7 +9,7 @@ import xml.sax
 import sys
 from colorama import init, Fore
 # There might be better values in different scenarios. Feel free to play with the value
-MAX_DIFFERENCE = 1000
+MAX_DIFFERENCE = 5000
 
 
 def validate_ip(ip):
@@ -49,24 +49,27 @@ class NmapHandler(xml.sax.ContentHandler):
 
 def banner():
     """ banner() - prints banner """
-    print ""
-    print ".___             __  .__  _____                .__                    __                          "
-print "|__| __| _/____   _____/  |_|__|/ ____\__.__.         |  |__   ____  _______/  |_  ______  ______ ___.__."
-print "|  |/ __ |/ __ \ /    \   __\  \   __<   |  |  ______ |  |  \ /  _ \/  ___/\   __\/  ___/  \____ <   |  |"
-print "|  / /_/ \  ___/|   |  \  | |  ||  |  \___  | /_____/ |   Y  (  <_> )___ \  |  |  \___ \   |  |_> >___  |"
-print "|__\____ |\___  >___|  /__| |__||__|  / ____|         |___|  /\____/____  > |__| /____  > /\   __// ____|"
-print "        \/    \/     \/               \/                   \/           \/            \/  \/__|   \/     "
-print ""
+    print("")
+    print(" ")
+    print(".___             __  .__  _____                .__                    __                          ")
+    print("|__| __| _/____   _____/  |_|__|/ ____\__.__.         |  |__   ____  _______/  |_  ______  ______ ___.__.")
+    print("|  |/ __ |/ __ \ /    \   __\  \   __<   |  |  ______ |  |  \ /  _ \/  ___/\   __\/  ___/  \____ <   |  |")
+    print("|  / /_/ \  ___/|   |  \  | |  ||  |  \___  | /_____/ |   Y  (  <_> )___ \  |  |  \___ \   |  |_> >___  |")
+    print("|__\____ |\___  >___|  /__| |__||__|  / ____|         |___|  /\____/____  > |__| /____  > /\   __// ____|")
+    print("        \/    \/     \/               \/                   \/           \/            \/  \/__|   \/     ")
+    print("")
 
 def usage():
     """ usage() - print usage """
-    print "Usage: python identify-hosts.py nmap-output.xml"
-    print "Note: Nmap file is expected to contain a single host"
+    print("Usage: python identify-hosts.py nmap-output.xml")
+    print("Note: Nmap file is expected to contain a single host")
+    print("Note: This PoC won't work if any of the services is active-active load-balanced")
 
 def __main__():
     """ main() - runs identify-hosts.py """
-    print "This is a PoC script"
-    print "(c) 2015 Veit Hailperin\n"
+    print("This is a PoC script")
+    print("(c) 2015 Veit Hailperin\n")
+    print("Note: This might take a minute, depending on how many ports are open")
     init()
     if len(sys.argv) != 2:
         usage()
@@ -78,21 +81,39 @@ def __main__():
     try:
         parser.parse(open(nmap_file, "r"))
     except IOError:
-        print "Couldn't open nmap xml file: "+nmap_file+"\n"
+        print("Couldn't open nmap xml file: "+nmap_file+"\n")
         exit(1)
     target = r_handler.host
     hosts = []
     open_ports = r_handler.open_ports
     timestamps = {} # {portnr:[timestamps]}
-
+    timestamp = 0
 
     for port in open_ports:
         timestamps[port] = []
         counter = 0
-        while counter < 5:
-            packet = sr1(IP(dst=target)/TCP(dport=port,flags="S",options=[('Timestamp',(0,0))]), verbose=False)
-            timestamp = packet[TCP].options[3][1][0]
-            timestamps[port].append(timestamp)
+        while counter < 10:
+            timestamp = 0
+            try:
+                ans, unans = sr(IP(dst=target)/TCP(sport=40123,
+                                                   dport=port, 
+                                                   flags="S", 
+                                                   options=[('Timestamp', (0, 0))]), 
+                                verbose=False, multi=True, timeout=1)
+
+                if len(ans) > 0:
+                    for snd, rcv in ans:
+                        if TCP in rcv:
+                            timestamp = rcv[TCP].options[3][1][0]
+                            break
+                    if timestamp != 0:
+                        timestamps[port].append(timestamp)
+                    else:
+                        print("Info: There was no TCP packet in the responses")
+                else:
+                    print("Info: Did not receive an answer")
+            except IndexError, KeyError:
+                print "ERROR: Something went wrong!"
             counter += 1
 
     while len(open_ports) > 0: 
@@ -103,12 +124,12 @@ def __main__():
                 hosts[len(hosts)-1].append(str(port)+" ["+str(timestamps[port][0])+"]")
                 open_ports.remove(port)
 
-    print "The following ports seem to belong to the same host:"
+    print("The following ports seem to belong to the same host:")
     i = 1
     for host in hosts:
-        print('\033[31m'+ "Host "+str(i)+":"+'\033[32m')
-        print(", ".join([str(x) for x in host]))
-        print ""
+        print(('\033[31m'+ "Host "+str(i)+":"+'\033[32m'))
+        print((", ".join([str(x) for x in host])))
+        print("")
         i += 1
                 
 __main__()
