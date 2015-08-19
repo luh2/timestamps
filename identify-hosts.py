@@ -102,18 +102,21 @@ def __main__():
                                 verbose=False, multi=True, timeout=1)
 
                 if len(ans) > 0:
-                    for snd, rcv in ans:
-                        if TCP in rcv:
-                            timestamp = rcv[TCP].options[3][1][0]
-                            break
-                    if timestamp != 0:
-                        timestamps[port].append(timestamp)
-                    else:
-                        print("Info: There was no TCP packet in the responses")
+                    try: 
+                        for snd, rcv in ans:
+                            if TCP in rcv:
+                                timestamp = rcv[TCP].options[3][1][0]
+                                break
+                        if timestamp != 0:
+                            timestamps[port].append(timestamp)
+                        else:
+                            print("Info: There was no TCP packet in the responses")
+                    except TypeError:
+                        print("ERROR: Something went wrong when reading TS")
                 else:
                     print("Info: Did not receive an answer")
             except IndexError, KeyError:
-                print "ERROR: Something went wrong!"
+                print("ERROR: Something went wrong!")
             counter += 1
 
     while len(open_ports) > 0: 
